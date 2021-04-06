@@ -1422,7 +1422,21 @@ server <- function(input, output) {
     output$plot2 <- renderPlotly({
 
         ggplotly(ggplot(df_plots, aes(Game, Earnings_SVM)) + geom_line(color = "blue") + geom_hline(yintercept = 10000, linetype = "dashed", color = "red") +
-                     labs(y = "Earnings", title = "Earnings with the support vector machines model"))
+                     labs(y = "Earnings", title = "Earnings with the support vector machine"))
+    })
+
+    output$vb1 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$predsLR == res_odds$result)/nrow(res_odds)*100, 2), "%"),
+                subtitle = "Accuracy of Log. Reg. model", color = "blue", width = 12)
+
+    })
+
+    output$vb2 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$predsSVM == res_odds$result)/nrow(res_odds)*100, 2), "%"),
+                subtitle = "Accuracy of SVM", color = "blue", width = 12)
+
     })
 
 

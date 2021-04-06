@@ -100,8 +100,8 @@ ui <- fluidPage(
 
                tabPanel("Beat the Odds",
                         tabsetPanel(tabPanel("Table", dataTableOutput("tableodds")),
-                                    tabPanel("Plots", br(), column(6, plotlyOutput("plot1")),
-                                             column(6, plotlyOutput("plot2")))
+                                    tabPanel("Plots", br(), column(6, plotlyOutput("plot1"), column(7, offset = 3, br(), valueBoxOutput("vb1", width = 12))),
+                                             column(6, plotlyOutput("plot2"), column(7, offset = 3, br(), valueBoxOutput("vb2", width = 12))))
 
 
 
