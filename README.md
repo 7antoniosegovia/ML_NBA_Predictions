@@ -1,4 +1,4 @@
-# ML_NBA_Predictions
+# Predicting NBA results with Machine Learning models
 
 
 The aim of this [app](https://7antoniosegovia.shinyapps.io/NBA_predictions/) is to provide a visual interface for the results obtained in my experiment. I am trying to predict the results of NBA games from March 31, 2021 onwards. For that, I will use two machine learning models, a logistic regression model and a support vectors machine with linear kernel.  
