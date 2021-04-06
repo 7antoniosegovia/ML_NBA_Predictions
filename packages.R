@@ -11,6 +11,7 @@ library(shinyWidgets)
 library(shinyBS)
 library(markdown)
 library(caret)
+library(shinycustomloader)
 library(kernlab)
 library(nbastatR)
 

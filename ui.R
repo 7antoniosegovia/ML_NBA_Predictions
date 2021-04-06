@@ -16,7 +16,6 @@ ui <- fluidPage(
                                                          vertical-align: middle;
                                                          padding-left: 10px;}"))),
 
-
                tabPanel("Introduction", column(10, offset = 1,
                                                HTML("<p style='text-align: center;'><span style='font-size: 46px;'>WELCOME!</span></p>"),
                                                tags$img(src = "https://i.pinimg.com/originals/d3/1a/ee/d31aeeee6fa31d3209f48cdc9e557c31.gif",
@@ -56,7 +55,7 @@ ui <- fluidPage(
 
                         tabsetPanel(tabPanel("Model 1 (LogReg)",
                                              uiOutput("textfardate"),
-                                             uiOutput("game1predLR"),
+                                             withLoader(uiOutput("game1predLR"), type = "image", loader = "loading.gif"),
                                              uiOutput("game2predLR"),
                                              uiOutput("game3predLR"),
                                              uiOutput("game4predLR"),
@@ -77,7 +76,7 @@ ui <- fluidPage(
 
                                    tabPanel("Model 2 (SVM)",
                                             uiOutput("textfardate2"),
-                                             uiOutput("game1predSVM"),
+                                             withLoader(uiOutput("game1predSVM"), type = "image", loader = "loading.gif"),
                                              uiOutput("game2predSVM"),
                                              uiOutput("game3predSVM"),
                                              uiOutput("game4predSVM"),
