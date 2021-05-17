@@ -274,7 +274,7 @@ server <- function(input, output) {
 
     df_date <- reactive({dplyr::filter(df_wide, dateGame <= input$date)})
 
-    season_2021_filt <- reactive({dplyr::filter(season2021, dateGame <= input$date)})
+    season_2021_filt <- reactive({dplyr::filter(season2021, dateGame < input$date)})
 
 
     daily_schedule <- reactive({dplyr::filter(schedule, Date == input$date)})
@@ -1438,6 +1438,438 @@ server <- function(input, output) {
                 subtitle = "Accuracy of SVM", color = "blue", width = 12)
 
     })
+
+    output$vboxresults1 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$predsLR == res_odds$result)/nrow(res_odds)*100, 2), "%"),
+                subtitle = "Log. Reg. - Accuracy", color = "blue", width = 12)
+
+    })
+
+
+    output$vboxresults2 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$predsSVM == res_odds$result)/nrow(res_odds)*100, 2), "%"),
+                subtitle = "SVM - Accuracy", color = "blue", width = 12)
+
+    })
+
+    output$vboxresults3 <- renderValueBox({
+
+        valueBox(paste0(res_odds$totalLR[nrow(res_odds)] - 10000, " Points"),
+                subtitle = "Log. Reg. - Net earnings", color = "green", width = 12)
+
+    })
+
+    output$vboxresults4 <- renderValueBox({
+
+        valueBox(paste0(res_odds$totalSVM[nrow(res_odds)] - 10000, " Points"),
+                subtitle = "SVM - Net earnings", color = "green", width = 12)
+
+    })
+
+    res_odds$aciertoLR <- ifelse(res_odds$predsLR == res_odds$result, 1, 0)
+    res_odds$aciertoSVM <- ifelse(res_odds$predsSVM == res_odds$result, 1, 0)
+
+    # Intentando calcular upset ratio
+
+    # Si cuota < 1.9, se ha apostado a favorito
+
+    res_odds$favoritoLR <- ifelse(res_odds$oddsLR < 1.9, "fav", "no")
+
+    # Si se ha apostado al favorito y se ha acertado, ha ganado el favorito
+    # o si se ha apostado al no favorito y no se ha acertado
+
+    res_odds$gana_favorito <- case_when(
+        res_odds$favoritoLR == "fav" & res_odds$aciertoLR == 1 ~ "si",
+        res_odds$favoritoLR == "fav" & res_odds$aciertoLR == 0 ~ "no",
+        res_odds$favoritoLR == "no" & res_odds$aciertoLR == 1 ~ "no",
+        res_odds$favoritoLR == "no" & res_odds$aciertoLR == 0 ~ "si",
+    )
+
+    output$vboxresults5 <- renderValueBox({
+
+        valueBox(paste0(round((1-sum(res_odds$gana_favorito == "si")/nrow(res_odds))*100,2), "%"),
+                subtitle = "Upset Ratio (Underdog victories)", color = "black", width = 12)
+
+    })
+
+    output$vboxresults6 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$predsLR != res_odds$predsSVM)/nrow(res_odds)*100,2), "%"),
+                subtitle = "Discrepancy Ratio (Different predictions)", color = "black", width = 12)
+
+    })
+
+    acierto_diario <- res_odds %>% group_by(Date) %>% summarise(prop_LR = round(sum(aciertoLR)/n(),4),
+                                          prop_SVM = round(sum(aciertoSVM)/n(),4),
+                                          earnings_LR = sum(winLR),
+                                          earnings_SVM = round(sum(winSVM),1))
+
+    output$dailyaccslr <- renderPlotly({
+
+        ggplotly(ggplot(acierto_diario, aes(Date, prop_LR)) +
+                geom_bar(stat = "identity", fill = case_when(acierto_diario$prop_LR <= 0.5 ~ "#c41414",
+                                                             acierto_diario$prop_LR > 0.5 &
+                                                                 acierto_diario$prop_LR < 0.75 ~ "#f48600",
+                                                             acierto_diario$prop_LR >= 0.75 ~ "#00c41d"),
+                         color = case_when(acierto_diario$prop_LR <= 0.5 ~ "#c41414",
+                                                             acierto_diario$prop_LR > 0.5 &
+                                                                 acierto_diario$prop_LR < 0.75 ~ "#f48600",
+                                                             acierto_diario$prop_LR >= 0.75 ~ "#00c41d"),
+                         alpha = 0.6, width = 0.7) + theme_light() +
+                labs(y = "Accuracy - LR", title = "Daily accuracies, Logistic regression"))
+
+    })
+
+    output$dailyvboxLR1 <- renderValueBox({
+
+        valueBox(acierto_diario$Date[which(acierto_diario$prop_LR == min(acierto_diario$prop_LR))],
+                subtitle = "Worst day (Accuracy, LR)", color = "red", width = 6)
+
+    })
+
+    output$dailyvboxLR2 <- renderValueBox({
+
+        valueBox(acierto_diario$Date[which(acierto_diario$prop_LR == max(acierto_diario$prop_LR))],
+                subtitle = "Best day (Accuracy, LR)", color = "green", width = 6)
+
+    })
+
+    output$dailyearningslr <- renderPlotly({
+
+        ggplotly(ggplot(acierto_diario, aes(Date, earnings_LR)) +
+        geom_bar(stat = "identity", fill = case_when(acierto_diario$prop_LR <= 0.5 ~ "#c41414",
+                                                     acierto_diario$prop_LR > 0.5 &
+                                                         acierto_diario$prop_LR < 0.75 ~ "#f48600",
+                                                     acierto_diario$prop_LR >= 0.75 ~ "#00c41d"),
+                 color = case_when(acierto_diario$prop_LR <= 0.5 ~ "#c41414",
+                                                     acierto_diario$prop_LR > 0.5 &
+                                                         acierto_diario$prop_LR < 0.75 ~ "#f48600",
+                                                     acierto_diario$prop_LR >= 0.75 ~ "#00c41d"),
+                 alpha = 0.6, width = 0.7) + theme_light() +
+        labs(y = "Earnings - LR", title = "Daily earnings, LR (colors depend on daily accuracy)"))
+
+    })
+
+
+    output$dailyvboxLR3 <- renderValueBox({
+
+        valueBox(acierto_diario$Date[which(acierto_diario$earnings_LR == min(acierto_diario$earnings_LR))],
+                subtitle = "Worst day (Earnings, LR)", color = "red", width = 6)
+
+    })
+
+    output$dailyvboxLR4 <- renderValueBox({
+
+        valueBox(acierto_diario$Date[which(acierto_diario$earnings_LR == max(acierto_diario$earnings_LR))],
+                subtitle = "Best day (Earnings, LR)", color = "green", width = 6)
+
+    })
+
+
+    output$dailyaccssvm <- renderPlotly({
+
+        ggplotly(ggplot(acierto_diario, aes(Date, prop_SVM)) +
+                geom_bar(stat = "identity", fill = case_when(acierto_diario$prop_SVM <= 0.5 ~ "#c41414",
+                                                             acierto_diario$prop_SVM > 0.5 &
+                                                                 acierto_diario$prop_SVM < 0.75 ~ "#f48600",
+                                                             acierto_diario$prop_SVM >= 0.75 ~ "#00c41d"),
+                         color = case_when(acierto_diario$prop_SVM <= 0.5 ~ "#c41414",
+                                                             acierto_diario$prop_SVM > 0.5 &
+                                                                 acierto_diario$prop_SVM < 0.75 ~ "#f48600",
+                                                             acierto_diario$prop_SVM >= 0.75 ~ "#00c41d"),
+                         alpha = 0.6, width = 0.7) + theme_light() +
+                labs(y = "Accuracy - SVM", title = "Daily accuracies, SVM"))
+
+    })
+
+    output$dailyvboxSVM1 <- renderValueBox({
+
+        valueBox(acierto_diario$Date[which(acierto_diario$prop_SVM == min(acierto_diario$prop_SVM))],
+                subtitle = "Worst day (Accuracy, SVM)", color = "red", width = 6)
+
+    })
+
+    output$dailyvboxSVM2 <- renderValueBox({
+
+        valueBox("3 times",
+                subtitle = "Best days (Accuracy, LR)", color = "green", width = 6)
+
+    })
+
+    output$dailyearningssvm <- renderPlotly({
+
+        ggplotly(ggplot(acierto_diario, aes(Date, earnings_SVM)) +
+        geom_bar(stat = "identity", fill = case_when(acierto_diario$prop_SVM <= 0.5 ~ "#c41414",
+                                                     acierto_diario$prop_SVM > 0.5 &
+                                                         acierto_diario$prop_SVM < 0.75 ~ "#f48600",
+                                                     acierto_diario$prop_SVM >= 0.75 ~ "#00c41d"),
+                 color = case_when(acierto_diario$prop_SVM <= 0.5 ~ "#c41414",
+                                                     acierto_diario$prop_SVM > 0.5 &
+                                                         acierto_diario$prop_SVM < 0.75 ~ "#f48600",
+                                                     acierto_diario$prop_SVM >= 0.75 ~ "#00c41d"),
+                 alpha = 0.6, width = 0.7) + theme_light() +
+        labs(y = "Earnings - SVM", title = "Daily earnings, SVM (colors depend on daily accuracy)"))
+
+    })
+
+
+    output$dailyvboxSVM3 <- renderValueBox({
+
+        valueBox(acierto_diario$Date[which(acierto_diario$earnings_SVM == min(acierto_diario$earnings_SVM))],
+                subtitle = "Worst day (Earnings, SVM)", color = "red", width = 6)
+
+    })
+
+    output$dailyvboxSVM4 <- renderValueBox({
+
+        valueBox(acierto_diario$Date[which(acierto_diario$earnings_SVM == max(acierto_diario$earnings_SVM))],
+                subtitle = "Best day (Earnings, SVM)", color = "green", width = 6)
+
+    })
+
+    output$betstrat1 <- renderPlotly({
+
+        ggplotly(res_odds %>% ggplot(aes(amountLR)) +
+    geom_bar(color = "#d90000", fill = "#d90000",
+             alpha = 0.4, width = 75) +
+    labs(title = "Frequency of betting amount", x = "Amount", y = "Frequency") +
+    theme_light())
+
+    })
+
+    strat_bet <- data.frame(amount = c(100,200,300), prop = c(0.551,0.726,0.816))
+
+    output$betstrat2 <- renderPlotly({
+
+        ggplotly(ggplot(strat_bet, aes(amount, prop)) +
+    geom_bar(stat = "identity", color = "#0e00ab", fill = "#0e00ab",
+             alpha = 0.4, width = 75) +
+    labs(title = "Accuracy by betting amount",
+         x = "Amount", y = "Accuracy") + theme_light())
+
+    })
+
+    output$betvbox13 <- renderValueBox({
+
+        valueBox(unlist(res_odds %>% dplyr::filter(aciertoLR == 1) %>% summarise(max(oddsLR))),
+                subtitle = "Max. odds hit, Log. Reg.", color = "black", width = 12)
+
+    })
+
+
+    output$betvbox14 <- renderValueBox({
+
+        valueBox(unlist(res_odds %>% dplyr::filter(aciertoSVM == 1) %>% summarise(max(oddsSVM))),
+                subtitle = "Max. odds hit, SVM", color = "black", width = 12)
+
+    })
+
+
+    output$betvbox1 <- renderValueBox({
+
+        valueBox(paste(sum(res_odds$oddsLR > 1.9), "(of 385)"),
+                subtitle = "Underdog predictions, LR", color = "blue", width = 12)
+
+    })
+
+
+    output$betvbox2 <- renderValueBox({
+
+        valueBox(paste(sum(res_odds$oddsSVM > 1.9), "(of 385)"),
+                subtitle = "Underdog predictions, SVM", color = "blue", width = 12)
+
+    })
+
+
+    output$betvbox3 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$oddsLR > 1.9 & res_odds$aciertoLR == 1)/sum(res_odds$oddsLR > 1.9)*100,2), "%"),
+                subtitle = "Acc. underdog predictions, LR", color = "red", width = 12)
+
+    })
+
+
+    output$betvbox4 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$oddsSVM > 1.9 & res_odds$aciertoSVM == 1)/sum(res_odds$oddsSVM > 1.9)*100,2), "%"),
+                subtitle = "Acc. underdog predictions, SVM", color = "red", width = 12)
+
+    })
+
+
+    output$betvbox5 <- renderValueBox({
+
+        valueBox(paste(sum(res_odds$oddsLR > 2.5), "(of 385)"),
+                subtitle = "Predictions w/ odds > 2.5, LR", color = "blue", width = 12)
+
+    })
+
+
+    output$betvbox6 <- renderValueBox({
+
+        valueBox(paste(sum(res_odds$oddsSVM > 2.5), "(of 385)"),
+                subtitle = "Predictions w/ odds > 2.5, SVM", color = "blue", width = 12)
+
+    })
+
+
+    output$betvbox7 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$oddsLR > 2.5 & res_odds$aciertoLR == 1)/sum(res_odds$oddsLR > 2.5)*100,2), "%"),
+                subtitle = "Acc. > 2.5 predictions, LR", color = "red", width = 12)
+
+    })
+
+
+    output$betvbox8 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$oddsSVM > 2.5 & res_odds$aciertoSVM == 1)/sum(res_odds$oddsSVM > 2.5)*100,2), "%"),
+                subtitle = "Acc. > 2.5 predictions, SVM", color = "red", width = 12)
+
+    })
+
+    output$betvbox9 <- renderValueBox({
+
+        valueBox(paste(sum(res_odds$oddsLR > 3), "(of 385)"),
+                subtitle = "Predictions w/ odds > 3, LR", color = "blue", width = 12)
+
+    })
+
+
+    output$betvbox10 <- renderValueBox({
+
+        valueBox(paste(sum(res_odds$oddsSVM > 3), "(of 385)"),
+                subtitle = "Predictions w/ odds > 3, SVM", color = "blue", width = 12)
+
+    })
+
+
+    output$betvbox11 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$oddsLR > 3 & res_odds$aciertoLR == 1)/sum(res_odds$oddsLR > 3)*100,2), "%"),
+                subtitle = "Acc. > 3 predictions, LR", color = "red", width = 12)
+
+    })
+
+
+    output$betvbox12 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$oddsSVM > 3 & res_odds$aciertoSVM == 1)/sum(res_odds$oddsSVM > 3)*100,2), "%"),
+                subtitle = "Acc. > 3 predictions, SVM", color = "red", width = 12)
+
+    })
+
+    output$betvbox15 <- renderValueBox({
+
+        valueBox(paste(sum(res_odds$oddsLR > 4), "(of 385)"),
+                subtitle = "Predictions w/ odds > 4, LR", color = "blue", width = 12)
+
+    })
+
+
+    output$betvbox16 <- renderValueBox({
+
+        valueBox(paste(sum(res_odds$oddsSVM > 4), "(of 385)"),
+                subtitle = "Predictions w/ odds > 4, SVM", color = "blue", width = 12)
+
+    })
+
+
+    output$betvbox17 <- renderValueBox({
+
+        valueBox(paste0(round(sum(res_odds$oddsLR > 4 & res_odds$aciertoLR == 1)/sum(res_odds$oddsLR > 4)*100,2), "%"),
+                subtitle = "Acc. > 4 predictions, LR", color = "red", width = 12)
+
+    })
+
+
+    output$betvbox18 <- renderValueBox({
+
+        valueBox(paste0("-"),
+                subtitle = "Acc. > 4 predictions, SVM", color = "red", width = 12)
+
+    })
+
+    prop_aciertos_LR <- NULL
+    prop_aciertos_SVM <- NULL
+    earnings_LR <- NULL
+    earnings_SVM <- NULL
+
+    for(i in 1:30){
+
+        prop_aciertos_LR[i] <- unlist(filter(res_odds,
+                                          Away == sort(unique(res_odds$Away))[i] |
+               Home == sort(unique(res_odds$Away))[i]) %>%
+        summarise(sum(aciertoLR == 1)/n()))
+
+        prop_aciertos_SVM[i] <- unlist(filter(res_odds,
+                                          Away == sort(unique(res_odds$Away))[i] |
+               Home == sort(unique(res_odds$Away))[i]) %>%
+        summarise(sum(aciertoSVM == 1)/n()))
+
+        earnings_LR[i] <- unlist(filter(res_odds,
+                                          Away == sort(unique(res_odds$Away))[i] |
+               Home == sort(unique(res_odds$Away))[i]) %>%
+        summarise(sum(winLR)/2))
+
+        earnings_SVM[i] <- unlist(filter(res_odds,
+                                          Away == sort(unique(res_odds$Away))[i] |
+               Home == sort(unique(res_odds$Away))[i]) %>%
+        summarise(sum(winSVM)/2))
+
+    }
+
+    equipos <- data.frame(Team = sort(unique(res_odds$Away)),
+                          prop_LR = prop_aciertos_LR,
+                          prop_SVM = prop_aciertos_SVM,
+                          earnings_LR = earnings_LR,
+                          earnings_SVM = earnings_SVM)
+
+
+    output$teamsplot1 <- renderPlotly({
+
+        ggplotly(ggplot(equipos, aes(reorder(Team, prop_LR), prop_LR)) +
+        geom_bar(stat = "identity", color = "#0e00ab", fill = "#0e00ab", alpha = 0.6) +
+        labs(title = "Better predicted teams, LR", x = "Team",
+             y = "Proportion of correct predictions") +
+        coord_flip() + theme_light())
+
+    })
+
+    output$teamsplot2 <- renderPlotly({
+
+     ggplotly(ggplot(equipos, aes(reorder(Team, earnings_LR), earnings_LR)) +
+        geom_bar(stat = "identity", color = ifelse(earnings_LR < 0, "#db0000", "#00ad14"), fill = ifelse(earnings_LR < 0, "#db0000", "#00ad14"), alpha = 0.6) +
+        labs(title = "Earnings by team, LR", x = "Team",
+             y = "Earnings") +
+        coord_flip() + theme_light())
+
+
+    })
+
+    output$teamsplot3 <- renderPlotly({
+
+        ggplotly(ggplot(equipos, aes(reorder(Team, prop_SVM), prop_SVM)) +
+        geom_bar(stat = "identity", color = "#0e00ab", fill = "#0e00ab", alpha = 0.6) +
+        labs(title = "Better predicted teams, SVM", x = "Team",
+             y = "Proportion of correct predictions") +
+        coord_flip() + theme_light())
+
+    })
+
+    output$teamsplot4 <- renderPlotly({
+
+        ggplotly(ggplot(equipos, aes(reorder(Team, earnings_SVM), earnings_SVM)) +
+        geom_bar(stat = "identity", color = ifelse(earnings_SVM < 0, "#db0000", "#00ad14"), fill = ifelse(earnings_SVM < 0, "#db0000", "#00ad14"), alpha = 0.6) +
+        labs(title = "Earnings by team, SVM", x = "Team",
+             y = "Earnings") +
+        coord_flip() + theme_light())
+
+    })
+
+
 
 
 
